@@ -3,7 +3,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Copia manifests do monorepo e instala deps com workspaces
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json* tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 
