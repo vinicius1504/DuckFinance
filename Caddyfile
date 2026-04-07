@@ -1,0 +1,13 @@
+duckcash.seudominio.com.br {
+    encode gzip
+
+    # Proxy /api → backend Fastify
+    handle /api/* {
+        reverse_proxy backend:3000
+    }
+
+    # Resto → frontend Nginx
+    handle {
+        reverse_proxy frontend:80
+    }
+}

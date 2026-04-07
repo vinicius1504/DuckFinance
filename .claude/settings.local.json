@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npm install:*)",
+      "Bash(cd:*)",
+      "WebFetch(domain:docs.cakto.com.br)",
+      "WebFetch(domain:docs.abacatepay.com)",
+      "Bash(command -v sshpass)",
+      "Bash(command -v plink)",
+      "Bash(command -v ssh)"
+    ]
+  }
+}
