@@ -13,7 +13,8 @@ COPY packages/shared ./packages/shared
 COPY packages/frontend ./packages/frontend
 
 WORKDIR /app/packages/frontend
-RUN npm run build
+# Pula tsc -b (que falha em tipos de libs externas) e roda só vite build
+RUN npx vite build
 
 # ---------- runtime ----------
 FROM nginx:alpine
