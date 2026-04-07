@@ -9,7 +9,9 @@
       "WebFetch(domain:docs.abacatepay.com)",
       "Bash(command -v sshpass)",
       "Bash(command -v plink)",
-      "Bash(command -v ssh)"
+      "Bash(command -v ssh)",
+      "Bash(ssh:*)",
+      "Bash(openssl rand:*)"
     ]
   }
 }
