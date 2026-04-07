@@ -34,6 +34,7 @@ export async function getTransactions(app: FastifyInstance, userId: string, filt
 
 export async function createTransaction(app: FastifyInstance, userId: string, data: {
   accountId: string;
+  toAccountId?: string;
   categoryId?: string;
   creditCardId?: string;
   type: string;
@@ -44,22 +45,68 @@ export async function createTransaction(app: FastifyInstance, userId: string, da
   isRecurring?: boolean;
   notes?: string;
 }) {
+  const isPaid = data.isPaid ?? true;
+
+  // ── Transfer: validações específicas + débito/crédito atômico ──
+  if (data.type === 'transfer') {
+    if (!data.toAccountId) {
+      throw new Error('Transferência requer conta de destino');
+    }
+    if (data.toAccountId === data.accountId) {
+      throw new Error('Conta de origem e destino não podem ser iguais');
+    }
+
+    const [transaction] = await app.db.transaction(async (tx) => {
+      const inserted = await tx.insert(transactions).values({
+        userId,
+        accountId: data.accountId,
+        toAccountId: data.toAccountId,
+        categoryId: null,
+        creditCardId: null,
+        type: 'transfer',
+        amount: String(data.amount),
+        description: data.description,
+        date: data.date,
+        isPaid,
+        isRecurring: data.isRecurring ?? false,
+        notes: data.notes || null,
+      }).returning();
+
+      if (isPaid) {
+        await tx.update(accounts).set({
+          balance: sql`${accounts.balance} - ${data.amount}`,
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, data.accountId));
+
+        await tx.update(accounts).set({
+          balance: sql`${accounts.balance} + ${data.amount}`,
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, data.toAccountId!));
+      }
+
+      return inserted;
+    });
+
+    return transaction;
+  }
+
+  // ── Income / Expense ──
   const [transaction] = await app.db.insert(transactions).values({
     userId,
     accountId: data.accountId,
+    toAccountId: null,
     categoryId: data.categoryId || null,
     creditCardId: data.creditCardId || null,
     type: data.type,
     amount: String(data.amount),
     description: data.description,
     date: data.date,
-    isPaid: data.isPaid ?? true,
+    isPaid,
     isRecurring: data.isRecurring ?? false,
     notes: data.notes || null,
   }).returning();
 
-  // Update account balance
-  if (data.isPaid !== false) {
+  if (isPaid) {
     const balanceChange = data.type === 'income' ? data.amount : -data.amount;
     await app.db.update(accounts).set({
       balance: sql`${accounts.balance} + ${balanceChange}`,
@@ -67,7 +114,6 @@ export async function createTransaction(app: FastifyInstance, userId: string, da
     }).where(eq(accounts.id, data.accountId));
   }
 
-  // Check budget alerts for expense transactions
   if (data.type === 'expense' && data.categoryId) {
     const txDate = new Date(data.date);
     const month = txDate.getMonth() + 1;
@@ -90,6 +136,21 @@ export async function updateTransaction(app: FastifyInstance, userId: string, id
   isRecurring?: boolean;
   notes?: string | null;
 }) {
+  // Transfers só permitem editar campos não-financeiros (description, date, notes, isRecurring).
+  // Pra mudar valor/contas/tipo, usuário deve excluir e recriar — evita reverter saldos parcialmente.
+  const [existing] = await app.db.select().from(transactions)
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+  if (!existing) return null;
+
+  if (existing.type === 'transfer') {
+    if (data.type !== undefined && data.type !== 'transfer') {
+      throw new Error('Não é possível mudar o tipo de uma transferência. Exclua e crie novamente.');
+    }
+    if (data.amount !== undefined || data.accountId !== undefined || data.isPaid !== undefined) {
+      throw new Error('Para alterar valor, contas ou status de pagamento de uma transferência, exclua e crie novamente.');
+    }
+  }
+
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (data.accountId !== undefined) values.accountId = data.accountId;
   if (data.categoryId !== undefined) values.categoryId = data.categoryId;
@@ -109,12 +170,34 @@ export async function updateTransaction(app: FastifyInstance, userId: string, id
 }
 
 export async function deleteTransaction(app: FastifyInstance, userId: string, id: string) {
-  // Get transaction first to reverse balance
   const [existing] = await app.db.select().from(transactions)
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
   if (!existing) return null;
 
+  // Transfer: reverte ambos os lados atomicamente
+  if (existing.type === 'transfer' && existing.toAccountId) {
+    return await app.db.transaction(async (tx) => {
+      if (existing.isPaid) {
+        const amount = Number(existing.amount);
+        await tx.update(accounts).set({
+          balance: sql`${accounts.balance} + ${amount}`,
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.accountId));
+
+        await tx.update(accounts).set({
+          balance: sql`${accounts.balance} - ${amount}`,
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.toAccountId!));
+      }
+      const [deleted] = await tx.delete(transactions)
+        .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+        .returning();
+      return deleted;
+    });
+  }
+
+  // Income / Expense
   if (existing.isPaid) {
     const reversal = existing.type === 'income' ? -Number(existing.amount) : Number(existing.amount);
     await app.db.update(accounts).set({

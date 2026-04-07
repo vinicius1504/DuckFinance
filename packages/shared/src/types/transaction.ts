@@ -4,6 +4,7 @@ export interface Transaction {
   id: string;
   userId: string;
   accountId: string;
+  toAccountId: string | null;
   categoryId: string | null;
   creditCardId: string | null;
   type: TransactionType;
@@ -20,6 +21,7 @@ export interface Transaction {
 
 export interface CreateTransactionRequest {
   accountId: string;
+  toAccountId?: string;
   categoryId?: string;
   creditCardId?: string;
   type: TransactionType;

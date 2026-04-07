@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, X, Check, RefreshCw, Calendar, Wallet, Tag, FileText, CreditCard } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, X, Check, RefreshCw, Calendar, Wallet, Tag, FileText, CreditCard, ArrowRight } from 'lucide-react';
 import { Card } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -62,8 +62,12 @@ export function TransactionsPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createTx.mutateAsync(createForm);
-    setCreateModalOpen(false);
+    try {
+      await createTx.mutateAsync(createForm);
+      setCreateModalOpen(false);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Erro ao criar transação');
+    }
   };
 
   // --- Detail / Edit ---
@@ -165,9 +169,20 @@ export function TransactionsPage() {
                     {tx.categoryId && ` — ${getCategoryName(tx.categoryId)}`}
                   </p>
                 </div>
-                <span className={`text-sm font-semibold whitespace-nowrap ml-3 ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                  {tx.type === 'income' ? '+' : '-'}{formatCurrency(Number(tx.amount))}
-                </span>
+                {tx.type === 'transfer' ? (
+                  <div className="flex flex-col items-end ml-3">
+                    <span className="text-sm font-semibold whitespace-nowrap text-[var(--accent)]">
+                      {formatCurrency(Number(tx.amount))}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
+                      {getAccountName(tx.accountId)} <ArrowRight size={10} /> {tx.toAccountId ? getAccountName(tx.toAccountId) : '—'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className={`text-sm font-semibold whitespace-nowrap ml-3 ${tx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(Number(tx.amount))}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -239,13 +254,24 @@ export function TransactionsPage() {
           />
           {accounts && accounts.length > 0 && (
             <Select
-              label="Conta"
+              label={createForm.type === 'transfer' ? 'Conta de origem' : 'Conta'}
               value={createForm.accountId}
               onChange={(e) => setCreateForm({ ...createForm, accountId: e.target.value })}
               options={accounts.map((a) => ({ value: a.id, label: a.name }))}
             />
           )}
-          {categories && categories.length > 0 && (
+          {createForm.type === 'transfer' && accounts && accounts.length > 0 && (
+            <Select
+              label="Conta de destino"
+              value={createForm.toAccountId || ''}
+              onChange={(e) => setCreateForm({ ...createForm, toAccountId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'Selecione...' },
+                ...accounts.filter((a) => a.id !== createForm.accountId).map((a) => ({ value: a.id, label: a.name })),
+              ]}
+            />
+          )}
+          {createForm.type !== 'transfer' && categories && categories.length > 0 && (
             <Select
               label="Categoria"
               value={createForm.categoryId || ''}
@@ -253,7 +279,7 @@ export function TransactionsPage() {
               options={[
                 { value: '', label: 'Sem categoria' },
                 ...categories
-                  .filter((c) => c.type === createForm.type || createForm.type === 'transfer')
+                  .filter((c) => c.type === createForm.type)
                   .map((c) => ({ value: c.id, label: c.name })),
               ]}
             />
@@ -299,14 +325,34 @@ export function TransactionsPage() {
                 icon={<CreditCard size={16} />}
                 label="Valor"
                 value={
-                  <span className={`font-semibold ${detailTx.type === 'income' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                    {detailTx.type === 'income' ? '+' : '-'}{formatCurrency(Number(detailTx.amount))}
+                  <span className={`font-semibold ${
+                    detailTx.type === 'income' ? 'text-[var(--success)]'
+                    : detailTx.type === 'expense' ? 'text-[var(--danger)]'
+                    : 'text-[var(--accent)]'
+                  }`}>
+                    {detailTx.type === 'income' ? '+' : detailTx.type === 'expense' ? '-' : ''}{formatCurrency(Number(detailTx.amount))}
                   </span>
                 }
               />
               <DetailRow icon={<Calendar size={16} />} label="Data" value={new Date(detailTx.date).toLocaleDateString('pt-BR')} />
-              <DetailRow icon={<Wallet size={16} />} label="Conta" value={getAccountName(detailTx.accountId)} />
-              <DetailRow icon={<Tag size={16} />} label="Categoria" value={getCategoryName(detailTx.categoryId)} />
+              {detailTx.type === 'transfer' ? (
+                <DetailRow
+                  icon={<Wallet size={16} />}
+                  label="Transferência"
+                  value={
+                    <span className="flex items-center gap-2">
+                      {getAccountName(detailTx.accountId)}
+                      <ArrowRight size={14} className="text-[var(--text-muted)]" />
+                      {detailTx.toAccountId ? getAccountName(detailTx.toAccountId) : '—'}
+                    </span>
+                  }
+                />
+              ) : (
+                <>
+                  <DetailRow icon={<Wallet size={16} />} label="Conta" value={getAccountName(detailTx.accountId)} />
+                  <DetailRow icon={<Tag size={16} />} label="Categoria" value={getCategoryName(detailTx.categoryId)} />
+                </>
+              )}
               <DetailRow
                 icon={<Check size={16} />}
                 label="Status"

@@ -11,7 +11,8 @@
       "Bash(command -v plink)",
       "Bash(command -v ssh)",
       "Bash(ssh:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(nslookup duckcash.viniciusleite.dev.br 8.8.8.8)"
     ]
   }
 }

@@ -74,6 +74,7 @@ export const transactions = pgTable('transactions', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id').notNull().references(() => accounts.id, { onDelete: 'cascade' }),
+  toAccountId: uuid('to_account_id').references(() => accounts.id, { onDelete: 'cascade' }),
   categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
   creditCardId: uuid('credit_card_id').references(() => creditCards.id, { onDelete: 'set null' }),
   type: varchar('type', { length: 20 }).notNull().default('expense'),

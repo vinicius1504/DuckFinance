@@ -4,6 +4,7 @@ import * as transactionService from '../services/transaction.service.js';
 
 const createSchema = z.object({
   accountId: z.string().uuid(),
+  toAccountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
   creditCardId: z.string().uuid().optional(),
   type: z.enum(['income', 'expense', 'transfer']),
@@ -13,7 +14,10 @@ const createSchema = z.object({
   isPaid: z.boolean().optional(),
   isRecurring: z.boolean().optional(),
   notes: z.string().optional(),
-});
+}).refine(
+  (d) => d.type !== 'transfer' || (!!d.toAccountId && d.toAccountId !== d.accountId),
+  { message: 'Transferência requer toAccountId diferente de accountId', path: ['toAccountId'] },
+);
 
 const updateSchema = z.object({
   accountId: z.string().uuid().optional(),
@@ -51,16 +55,24 @@ export default async function transactionRoutes(app: FastifyInstance) {
 
   app.post('/transactions', async (request, reply) => {
     const body = createSchema.parse(request.body);
-    const transaction = await transactionService.createTransaction(app, request.user.sub, body);
-    return reply.status(201).send(transaction);
+    try {
+      const transaction = await transactionService.createTransaction(app, request.user.sub, body);
+      return reply.status(201).send(transaction);
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
   });
 
   app.put('/transactions/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = updateSchema.parse(request.body);
-    const transaction = await transactionService.updateTransaction(app, request.user.sub, id, body);
-    if (!transaction) return reply.status(404).send({ error: 'Transaction not found' });
-    return transaction;
+    try {
+      const transaction = await transactionService.updateTransaction(app, request.user.sub, id, body);
+      if (!transaction) return reply.status(404).send({ error: 'Transaction not found' });
+      return transaction;
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
+    }
   });
 
   app.delete('/transactions/:id', async (request, reply) => {
