@@ -35,6 +35,7 @@ export interface CreateTransactionRequest {
 
 export interface UpdateTransactionRequest {
   accountId?: string;
+  toAccountId?: string | null;
   categoryId?: string | null;
   creditCardId?: string | null;
   type?: TransactionType;

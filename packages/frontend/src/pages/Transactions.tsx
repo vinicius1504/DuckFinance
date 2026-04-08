@@ -84,6 +84,7 @@ export function TransactionsPage() {
       amount: Number(detailTx.amount),
       date: detailTx.date.slice(0, 10),
       accountId: detailTx.accountId,
+      toAccountId: detailTx.toAccountId || undefined,
       categoryId: detailTx.categoryId || undefined,
       notes: detailTx.notes || undefined,
     });
@@ -412,13 +413,24 @@ export function TransactionsPage() {
             />
             {accounts && accounts.length > 0 && (
               <Select
-                label="Conta"
+                label={editForm.type === 'transfer' ? 'Conta de origem' : 'Conta'}
                 value={editForm.accountId || ''}
                 onChange={(e) => setEditForm({ ...editForm, accountId: e.target.value })}
                 options={accounts.map((a) => ({ value: a.id, label: a.name }))}
               />
             )}
-            {categories && categories.length > 0 && (
+            {editForm.type === 'transfer' && accounts && accounts.length > 0 && (
+              <Select
+                label="Conta de destino"
+                value={editForm.toAccountId || ''}
+                onChange={(e) => setEditForm({ ...editForm, toAccountId: e.target.value || undefined })}
+                options={[
+                  { value: '', label: 'Selecione...' },
+                  ...accounts.filter((a) => a.id !== editForm.accountId).map((a) => ({ value: a.id, label: a.name })),
+                ]}
+              />
+            )}
+            {editForm.type !== 'transfer' && categories && categories.length > 0 && (
               <Select
                 label="Categoria"
                 value={editForm.categoryId || ''}
@@ -426,7 +438,7 @@ export function TransactionsPage() {
                 options={[
                   { value: '', label: 'Sem categoria' },
                   ...categories
-                    .filter((c) => c.type === editForm.type || editForm.type === 'transfer')
+                    .filter((c) => c.type === editForm.type)
                     .map((c) => ({ value: c.id, label: c.name })),
                 ]}
               />

@@ -102,6 +102,7 @@ export async function createTransaction(app: FastifyInstance, userId: string, da
 
 export async function updateTransaction(app: FastifyInstance, userId: string, id: string, data: {
   accountId?: string;
+  toAccountId?: string | null;
   categoryId?: string | null;
   creditCardId?: string | null;
   type?: string;
@@ -112,23 +113,13 @@ export async function updateTransaction(app: FastifyInstance, userId: string, id
   isRecurring?: boolean;
   notes?: string | null;
 }) {
-  // Transfers só permitem editar campos não-financeiros (description, date, notes, isRecurring).
-  // Pra mudar valor/contas/tipo, usuário deve excluir e recriar — evita reverter saldos parcialmente.
   const [existing] = await app.db.select().from(transactions)
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
   if (!existing) return null;
 
-  if (existing.type === 'transfer') {
-    if (data.type !== undefined && data.type !== 'transfer') {
-      throw new Error('Não é possível mudar o tipo de uma transferência. Exclua e crie novamente.');
-    }
-    if (data.amount !== undefined || data.accountId !== undefined || data.isPaid !== undefined) {
-      throw new Error('Para alterar valor, contas ou status de pagamento de uma transferência, exclua e crie novamente.');
-    }
-  }
-
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (data.accountId !== undefined) values.accountId = data.accountId;
+  if (data.toAccountId !== undefined) values.toAccountId = data.toAccountId;
   if (data.categoryId !== undefined) values.categoryId = data.categoryId;
   if (data.creditCardId !== undefined) values.creditCardId = data.creditCardId;
   if (data.type !== undefined) values.type = data.type;

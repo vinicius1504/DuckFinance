@@ -21,6 +21,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   accountId: z.string().uuid().optional(),
+  toAccountId: z.string().uuid().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
   creditCardId: z.string().uuid().nullable().optional(),
   type: z.enum(['income', 'expense', 'transfer']).optional(),
