@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Eye, X, Check, RefreshCw, Calendar, Wallet, Tag, FileText, CreditCard, ArrowRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Calendar, Wallet, Tag, FileText, CreditCard, ArrowRight } from 'lucide-react';
 import { Card } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
 import { Input } from '../components/ui/Input.js';
@@ -85,8 +85,6 @@ export function TransactionsPage() {
       date: detailTx.date.slice(0, 10),
       accountId: detailTx.accountId,
       categoryId: detailTx.categoryId || undefined,
-      isPaid: detailTx.isPaid,
-      isRecurring: detailTx.isRecurring,
       notes: detailTx.notes || undefined,
     });
     setIsEditing(true);
@@ -165,7 +163,6 @@ export function TransactionsPage() {
                   <p className="text-sm font-medium text-[var(--text-primary)] truncate">{tx.description}</p>
                   <p className="text-xs text-[var(--text-muted)]">
                     {new Date(tx.date).toLocaleDateString('pt-BR')}
-                    {!tx.isPaid && ' — Pendente'}
                     {tx.categoryId && ` — ${getCategoryName(tx.categoryId)}`}
                   </p>
                 </div>
@@ -353,22 +350,6 @@ export function TransactionsPage() {
                   <DetailRow icon={<Tag size={16} />} label="Categoria" value={getCategoryName(detailTx.categoryId)} />
                 </>
               )}
-              <DetailRow
-                icon={<Check size={16} />}
-                label="Status"
-                value={
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
-                    detailTx.isPaid
-                      ? 'bg-[var(--success)]/15 text-[var(--success)]'
-                      : 'bg-[var(--warning)]/15 text-[var(--warning)]'
-                  }`}>
-                    {detailTx.isPaid ? 'Pago' : 'Pendente'}
-                  </span>
-                }
-              />
-              {detailTx.isRecurring && (
-                <DetailRow icon={<RefreshCw size={16} />} label="Recorrente" value="Sim" />
-              )}
               {detailTx.notes && (
                 <DetailRow icon={<FileText size={16} />} label="Notas" value={detailTx.notes} />
               )}
@@ -450,26 +431,6 @@ export function TransactionsPage() {
                 ]}
               />
             )}
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editForm.isPaid ?? false}
-                  onChange={(e) => setEditForm({ ...editForm, isPaid: e.target.checked })}
-                  className="accent-[var(--accent)]"
-                />
-                Pago
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editForm.isRecurring ?? false}
-                  onChange={(e) => setEditForm({ ...editForm, isRecurring: e.target.checked })}
-                  className="accent-[var(--accent)]"
-                />
-                Recorrente
-              </label>
-            </div>
             <Input
               label="Notas"
               value={editForm.notes || ''}
