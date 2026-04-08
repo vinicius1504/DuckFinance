@@ -13,7 +13,10 @@
       "Bash(ssh:*)",
       "Bash(openssl rand:*)",
       "Bash(nslookup duckcash.viniciusleite.dev.br 8.8.8.8)",
-      "Bash(ssh-keyscan:*)"
+      "Bash(ssh-keyscan:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }

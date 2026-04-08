@@ -1,5 +1,5 @@
 import { eq, and, gte, lte, ilike, sql, desc } from 'drizzle-orm';
-import { transactions, accounts } from '../db/schema.js';
+import { transactions } from '../db/schema.js';
 import type { FastifyInstance } from 'fastify';
 import type { TransactionFilters } from '@duckfinance/shared';
 import { checkBudgetAlerts } from './budget.service.js';
@@ -56,36 +56,20 @@ export async function createTransaction(app: FastifyInstance, userId: string, da
       throw new Error('Conta de origem e destino não podem ser iguais');
     }
 
-    const [transaction] = await app.db.transaction(async (tx) => {
-      const inserted = await tx.insert(transactions).values({
-        userId,
-        accountId: data.accountId,
-        toAccountId: data.toAccountId,
-        categoryId: null,
-        creditCardId: null,
-        type: 'transfer',
-        amount: String(data.amount),
-        description: data.description,
-        date: data.date,
-        isPaid,
-        isRecurring: data.isRecurring ?? false,
-        notes: data.notes || null,
-      }).returning();
-
-      if (isPaid) {
-        await tx.update(accounts).set({
-          balance: sql`${accounts.balance} - ${data.amount}`,
-          updatedAt: new Date(),
-        }).where(eq(accounts.id, data.accountId));
-
-        await tx.update(accounts).set({
-          balance: sql`${accounts.balance} + ${data.amount}`,
-          updatedAt: new Date(),
-        }).where(eq(accounts.id, data.toAccountId!));
-      }
-
-      return inserted;
-    });
+    const [transaction] = await app.db.insert(transactions).values({
+      userId,
+      accountId: data.accountId,
+      toAccountId: data.toAccountId,
+      categoryId: null,
+      creditCardId: null,
+      type: 'transfer',
+      amount: String(data.amount),
+      description: data.description,
+      date: data.date,
+      isPaid,
+      isRecurring: data.isRecurring ?? false,
+      notes: data.notes || null,
+    }).returning();
 
     return transaction;
   }
@@ -105,14 +89,6 @@ export async function createTransaction(app: FastifyInstance, userId: string, da
     isRecurring: data.isRecurring ?? false,
     notes: data.notes || null,
   }).returning();
-
-  if (isPaid) {
-    const balanceChange = data.type === 'income' ? data.amount : -data.amount;
-    await app.db.update(accounts).set({
-      balance: sql`${accounts.balance} + ${balanceChange}`,
-      updatedAt: new Date(),
-    }).where(eq(accounts.id, data.accountId));
-  }
 
   if (data.type === 'expense' && data.categoryId) {
     const txDate = new Date(data.date);
@@ -174,37 +150,6 @@ export async function deleteTransaction(app: FastifyInstance, userId: string, id
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
 
   if (!existing) return null;
-
-  // Transfer: reverte ambos os lados atomicamente
-  if (existing.type === 'transfer' && existing.toAccountId) {
-    return await app.db.transaction(async (tx) => {
-      if (existing.isPaid) {
-        const amount = Number(existing.amount);
-        await tx.update(accounts).set({
-          balance: sql`${accounts.balance} + ${amount}`,
-          updatedAt: new Date(),
-        }).where(eq(accounts.id, existing.accountId));
-
-        await tx.update(accounts).set({
-          balance: sql`${accounts.balance} - ${amount}`,
-          updatedAt: new Date(),
-        }).where(eq(accounts.id, existing.toAccountId!));
-      }
-      const [deleted] = await tx.delete(transactions)
-        .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
-        .returning();
-      return deleted;
-    });
-  }
-
-  // Income / Expense
-  if (existing.isPaid) {
-    const reversal = existing.type === 'income' ? -Number(existing.amount) : Number(existing.amount);
-    await app.db.update(accounts).set({
-      balance: sql`${accounts.balance} + ${reversal}`,
-      updatedAt: new Date(),
-    }).where(eq(accounts.id, existing.accountId));
-  }
 
   const [transaction] = await app.db.delete(transactions)
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
